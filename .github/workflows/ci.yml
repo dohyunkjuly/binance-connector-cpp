@@ -1,0 +1,120 @@
+# Builds the library and runs the offline unit tests on Linux, macOS and Windows.
+#
+# No test here talks to Binance: live tests skip themselves unless BINANCE_LIVE_TESTS=1, and no
+# API keys are stored in this repository's CI. Run the live tests locally before a release
+# (see README).
+
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # vcpkg tool version; the package versions come from builtin-baseline in vcpkg.json.
+  VCPKG_COMMIT: 30f771d4acf01bc7773d5c602443e7f839844a15
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux GCC
+            os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+          - name: Linux Clang
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+          - name: Linux ASan+UBSan
+            os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+            sanitize: address,undefined
+          - name: macOS
+            os: macos-15
+            cc: clang
+            cxx: clang++
+          - name: Windows MSVC
+            os: windows-2022
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg-cache,readwrite
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++-14 clang-18 linux-libc-dev
+
+      # Built dependencies (Boost, OpenSSL, ...) are cached per job; the key changes with vcpkg.json.
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ matrix.name }}-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ matrix.name }}-
+
+      - name: Set up vcpkg
+        shell: bash
+        run: |
+          mkdir -p vcpkg-cache
+          git clone --filter=blob:none https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout -q "$VCPKG_COMMIT"
+          if [ "$RUNNER_OS" = Windows ]; then "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+          else "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics; fi
+
+      # Windows: plain shell, so cl.exe / link.exe from the MSVC environment are used (Git Bash
+      # has its own "link" that would shadow MSVC's).
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --preset debug
+
+      - name: Configure
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          export CC="${{ matrix.cc }}" CXX="${{ matrix.cxx }}"
+          flags=()
+          if [ -n "${{ matrix.sanitize }}" ]; then
+            flags+=("-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitize }} -fno-omit-frame-pointer -fno-sanitize-recover=all")
+            flags+=("-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=${{ matrix.sanitize }}")
+          fi
+          cmake --preset debug "${flags[@]}"
+
+      - name: Build
+        run: cmake --build --preset debug --parallel
+
+      - name: Test
+        run: ctest --preset debug --output-on-failure --timeout 300
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format 18
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq clang-format-18
+      - name: Check formatting
+        run: clang-format-18 --dry-run --Werror $(git ls-files '*.cpp' '*.hpp')

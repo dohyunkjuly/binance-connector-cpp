@@ -1,0 +1,17 @@
+# Build output
+build/
+out/
+vcpkg_installed/
+compile_commands.json
+
+# Local secrets / config
+*.env
+.env*
+*.pem
+config.local.*
+
+# IDE / OS
+.vscode/
+.idea/
+.cache/
+.DS_Store

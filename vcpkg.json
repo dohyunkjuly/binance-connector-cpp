@@ -1,0 +1,25 @@
+{
+  "name": "binance-connector",
+  "version-semver": "0.1.0",
+  "description": "Binance spot and USD-M futures connector",
+  "dependencies": [
+    "boost-asio",
+    "boost-beast",
+    "boost-system",
+    "openssl",
+    "simdjson",
+    "spdlog"
+  ],
+  "features": {
+    "tests": {
+      "description": "Build unit tests",
+      "dependencies": [
+        "gtest"
+      ]
+    }
+  },
+  "default-features": [
+    "tests"
+  ],
+  "builtin-baseline": "30f771d4acf01bc7773d5c602443e7f839844a15"
+}
