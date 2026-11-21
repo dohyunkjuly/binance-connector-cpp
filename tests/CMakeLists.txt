@@ -20,6 +20,11 @@ target_link_libraries(binance_unit_tests PRIVATE
 # Unit tests may reach into src/ to test internal components.
 target_include_directories(binance_unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
+# MSVC: the Boost.Asio-heavy tests exceed the default number of sections in one object file.
+if(MSVC)
+    target_compile_options(binance_unit_tests PRIVATE /bigobj /utf-8)
+endif()
+
 # PRE_TEST: list the tests when ctest runs, not right after linking (on Windows the vcpkg DLLs
 # are copied next to the executable only after that).
 gtest_discover_tests(binance_unit_tests DISCOVERY_MODE PRE_TEST)

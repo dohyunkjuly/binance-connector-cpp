@@ -5,8 +5,10 @@ project(binance_connector
     DESCRIPTION "Binance spot and USD-M futures connector"
     LANGUAGES CXX)
 
-option(BINANCE_BUILD_TESTS    "Build unit tests"            ON)
-option(BINANCE_BUILD_EXAMPLES "Build examples"              ON)
+# Tests and examples only when this is the main project, not when used via add_subdirectory /
+# FetchContent.
+option(BINANCE_BUILD_TESTS    "Build unit tests"            ${PROJECT_IS_TOP_LEVEL})
+option(BINANCE_BUILD_EXAMPLES "Build examples"              ${PROJECT_IS_TOP_LEVEL})
 option(BINANCE_ENABLE_SPOT    "Compile spot market support" ON)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -15,7 +17,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # No C++20 modules here. Without this, CMake >= 3.28 with Clang + Ninja runs clang-scan-deps on
 # every file and fails where that tool is not installed (common on Linux).
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
 
 # ---------------------------------------------------------------------------
 # Dependencies (provided by vcpkg, see vcpkg.json)
@@ -37,6 +41,9 @@ add_library(binance_connector
     src/version.cpp
 )
 add_library(binance::connector ALIAS binance_connector)
+
+# The public headers need C++20: code that links the library is compiled as C++20 too.
+target_compile_features(binance_connector PUBLIC cxx_std_20)
 
 target_include_directories(binance_connector
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}/include

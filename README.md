@@ -65,13 +65,30 @@ cmake --build --preset debug
 ctest --preset debug          # offline unit tests
 ```
 
-To use it from your own CMake project, add it as a subdirectory (or with `FetchContent`) and link
-`binance::connector`:
+### Using it in your project
+
+Your project provides the dependencies. With vcpkg, list them in your `vcpkg.json`:
+
+```json
+{
+  "dependencies": ["boost-asio", "boost-beast", "boost-system", "openssl", "simdjson", "spdlog"]
+}
+```
+
+Then fetch the connector and link `binance::connector` (your code is compiled as C++20):
 
 ```cmake
-add_subdirectory(binance-connector-cpp)
+include(FetchContent)
+FetchContent_Declare(binance_connector
+    GIT_REPOSITORY https://github.com/dohyunkjuly/binance-connector-cpp.git
+    GIT_TAG v0.1.0)
+FetchContent_MakeAvailable(binance_connector)
+
 target_link_libraries(my_bot PRIVATE binance::connector)
 ```
+
+Or, with a copy of the repository in your tree: `add_subdirectory(binance-connector-cpp)`. Tests and
+examples are only built when the connector is the main project.
 
 ## Examples
 
