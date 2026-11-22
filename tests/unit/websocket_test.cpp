@@ -97,7 +97,7 @@ public:
     }
 
     WsEndpoint endpoint(std::string target = "/stream") const {
-        return {"localhost", std::to_string(acceptor_.local_endpoint().port()), std::move(target)};
+        return {"127.0.0.1", std::to_string(acceptor_.local_endpoint().port()), std::move(target)};
     }
     ssl::context& client_tls() { return client_tls_; }
     void stop() { acceptor_.close(); }
